@@ -589,13 +589,13 @@ a.rblai-stat:hover { border-color: #a7aaad; color: inherit; }
 
 .rblai-list-form .column-link { width: 34%; }
 .rblai-list-form .column-replacement { width: 38%; }
-.rblai-list-form .column-posts { width: 15%; }
+.rblai-list-form .column-used_in { width: 15%; }
 .rblai-list-form .column-date { width: 13%; }
 
 @media (max-width: 782px) {
 	.rblai-list-form .column-link,
 	.rblai-list-form .column-replacement,
-	.rblai-list-form .column-posts,
+	.rblai-list-form .column-used_in,
 	.rblai-list-form .column-date { width: auto; }
 }
 

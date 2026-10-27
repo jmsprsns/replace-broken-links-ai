@@ -111,7 +111,7 @@ final class Replace_Broken_Links_AI_List_Table extends WP_List_Table {
 			'cb'          => '<input type="checkbox">',
 			'link'        => __( 'Broken link', 'replace-broken-links-ai' ),
 			'replacement' => __( 'Replacement', 'replace-broken-links-ai' ),
-			'posts'       => __( 'Used in', 'replace-broken-links-ai' ),
+			'used_in'     => __( 'Used in', 'replace-broken-links-ai' ),
 			'date'        => __( 'Updated', 'replace-broken-links-ai' ),
 		);
 	}
@@ -536,7 +536,7 @@ final class Replace_Broken_Links_AI_List_Table extends WP_List_Table {
 	 * @param array $item Row.
 	 * @return string
 	 */
-	protected function column_posts( $item ) {
+	protected function column_used_in( $item ) {
 		$uses = isset( $this->uses[ (int) $item['id'] ] ) ? $this->uses[ (int) $item['id'] ] : array();
 
 		if ( ! $uses ) {

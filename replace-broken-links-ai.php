@@ -3,7 +3,7 @@
  * Plugin Name:       Replace Broken Links With AI
  * Plugin URI:        https://www.contentpowered.com
  * Description:       Finds links in your posts that return 404 or 410, waits until they're truly dead, then uses AI and a Google search to swap each one for the best live page on the same topic.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 5.8
  * Requires PHP:      7.2
  * Author:            Content Powered

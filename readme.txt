@@ -90,6 +90,11 @@ Yes. Define REPLACE_BROKEN_LINKS_AI_OPENAI_KEY, REPLACE_BROKEN_LINKS_AI_ANTHROPI
 
 == Changelog ==
 
+= 1.0.1 =
+* Wayback Machine lookups use the CDX API first (one request lists the last good copies before the link died), with the availability API as a fallback, so archive.org rate limits matter less.
+* Archived summaries no longer repeat a description that's the first paragraph cut short.
+* The "Used in" column is left-aligned again (it shared a class name with a core column).
+
 = 1.0.0 =
 * First release.
 

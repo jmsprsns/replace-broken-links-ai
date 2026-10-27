@@ -2,9 +2,10 @@
 /**
  * What a dead page used to say, from the Internet Archive's Wayback Machine.
  *
- * The availability API finds the copy saved closest to (before) the day the
- * link started failing, then the raw copy of that page (the "id_" form, without
- * the Wayback toolbar) is read for its title, description and opening text.
+ * The CDX API lists the copies saved before the day the link started
+ * failing (the availability API is the fallback), then the raw copy of the
+ * page (the "id_" form, without the Wayback toolbar) is read for its title,
+ * description and opening text.
  * "What was this page about" makes a much better search than guessing from
  * the address. The copy's address is also offered as a last-resort
  * replacement when no live page matches.
@@ -24,8 +25,9 @@ defined( 'ABSPATH' ) || exit;
 final class Replace_Broken_Links_AI_Wayback {
 
 	/**
-	 * Availability API.
+	 * CDX API (captures of a URL), and the availability API as a fallback.
 	 */
+	const CDX       = 'https://web.archive.org/cdx/search/cdx';
 	const AVAILABLE = 'https://archive.org/wayback/available';
 
 	/**
@@ -36,26 +38,26 @@ final class Replace_Broken_Links_AI_Wayback {
 	/**
 	 * The last good copy of a page saved before a time.
 	 *
-	 * Tries just before the link started failing, then a year and three years
-	 * earlier, and skips copies that are error pages or parked domains.
+	 * Asks the CDX API for the latest captures that were a 200 before the day
+	 * the link started failing (falling back to the availability API if CDX
+	 * doesn't answer), then reads them newest first, skipping copies that
+	 * are empty or show a parked domain.
 	 *
 	 * @param string $url    Dead URL.
 	 * @param int    $before Unix time the link started failing (0 for now).
 	 * @return array{url: string, timestamp: string, date: string, title: string, summary: string}|null
 	 */
 	public static function snapshot( $url, $before ) {
-		$before = $before ? (int) $before : time();
-		$tried  = array();
+		$before = ( $before ? (int) $before : time() ) - DAY_IN_SECONDS;
+		$stamps = self::captures( $url, gmdate( 'YmdHis', $before ) );
 
-		foreach ( array( DAY_IN_SECONDS, YEAR_IN_SECONDS, 3 * YEAR_IN_SECONDS ) as $back ) {
-			$closest = self::closest( $url, gmdate( 'YmdHis', $before - $back ) );
+		if ( ! $stamps ) {
+			$closest = self::closest( $url, gmdate( 'YmdHis', $before ) );
+			$stamps  = '' !== $closest ? array( $closest ) : array();
+		}
 
-			if ( ! $closest || isset( $tried[ $closest ] ) ) {
-				continue;
-			}
-			$tried[ $closest ] = true;
-
-			$page = self::read( $url, $closest );
+		foreach ( array_slice( $stamps, 0, 3 ) as $stamp ) {
+			$page = self::read( $url, $stamp );
 
 			if ( $page ) {
 				return $page;
@@ -63,6 +65,51 @@ final class Replace_Broken_Links_AI_Wayback {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Timestamps of the latest captures of a URL that answered 200, saved no
+	 * later than a time, newest first.
+	 *
+	 * @param string $url URL.
+	 * @param string $to  YmdHis.
+	 * @return string[]
+	 */
+	private static function captures( $url, $to ) {
+		$response = wp_safe_remote_get(
+			add_query_arg(
+				array(
+					'url'    => rawurlencode( $url ),
+					'output' => 'json',
+					'filter' => 'statuscode:200',
+					'to'     => $to,
+					'limit'  => '-5',
+					'fl'     => 'timestamp',
+				),
+				self::CDX
+			),
+			array(
+				'timeout'             => 15,
+				'limit_response_size' => 65536,
+			)
+		);
+
+		if ( is_wp_error( $response ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+			return array();
+		}
+
+		$rows   = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$stamps = array();
+
+		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
+			$stamp = is_array( $row ) && isset( $row[0] ) ? (string) $row[0] : '';
+
+			if ( preg_match( '/^\d{14}$/', $stamp ) ) {
+				$stamps[] = $stamp;
+			}
+		}
+
+		return array_reverse( array_unique( $stamps ) );
 	}
 
 	/**
@@ -188,8 +235,23 @@ final class Replace_Broken_Links_AI_Wayback {
 			}
 		}
 
-		$parts = array_values( array_unique( array_filter( $parts ) ) );
+		// Descriptions are often the first paragraph cut short: keep only the
+		// longer of two pieces that start the same way.
+		$kept = array();
+		foreach ( array_filter( $parts ) as $part ) {
+			$start = strtolower( substr( $part, 0, 50 ) );
 
-		return Replace_Broken_Links_AI_Content::cut( implode( ' ', $parts ), 700 );
+			foreach ( $kept as $i => $earlier ) {
+				if ( false !== strpos( strtolower( $part ), strtolower( substr( $earlier, 0, 50 ) ) ) ) {
+					unset( $kept[ $i ] );
+				} elseif ( false !== strpos( strtolower( $earlier ), $start ) ) {
+					continue 2;
+				}
+			}
+
+			$kept[] = $part;
+		}
+
+		return Replace_Broken_Links_AI_Content::cut( implode( ' ', $kept ), 700 );
 	}
 }
